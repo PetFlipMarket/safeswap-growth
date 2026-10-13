@@ -9,7 +9,7 @@ const fmt = (v) => n(v).toLocaleString("en-GB");
 const gbp = (v) => "£" + n(v).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : 0);
 const RANGES = { 1: "Yesterday", 7: "7 days", 28: "28 days" };
-const GOAL = Number(process.env.MONTHLY_SIGNUP_GOAL || 1000);
+const GROWTH = 1.25; // each month's goal = last month's new users + 25%
 
 function Delta({ now, prev }) {
   if (!prev) return <span className="delta flat">no prior data</span>;
@@ -97,6 +97,10 @@ export default async function Page({ searchParams }) {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const mtd = core.filter((d) => new Date(d.day) >= monthStart).reduce((a, d) => a + n(d.signups), 0);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonth = core.filter((d) => new Date(d.day) >= lastMonthStart && new Date(d.day) < monthStart).reduce((a, d) => a + n(d.signups), 0);
+  const up100 = (v) => Math.ceil(v / 100) * 100;
+  const GOAL = Number(process.env.MONTHLY_SIGNUP_GOAL) || up100(lastMonth * GROWTH) || 1000;
   const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const elapsed = now.getDate() - 1 + now.getHours() / 24;
   const projected = elapsed > 0 ? Math.round((mtd / elapsed) * dim) : 0;
@@ -165,7 +169,7 @@ export default async function Page({ searchParams }) {
           </div>
           <div className="legend"><span><i style={{ background: "#8B6CF0" }} />Goal</span><b className="mono">{Math.round(goalFrac * 100)}%</b></div>
           <div className="legend"><span><i style={{ background: "#4ADE80" }} />Month gone</span><b className="mono">{Math.round(timeFrac * 100)}%</b></div>
-          <div className="note">At this pace: <b>{fmt(projected)}</b> new users by month end.</div>
+          <div className="note">At this pace: <b>{fmt(projected)}</b> new users by month end. Goal is last month ({fmt(lastMonth)}) + 25%, and resets on the 1st.</div>
         </section>
       </div>
 
