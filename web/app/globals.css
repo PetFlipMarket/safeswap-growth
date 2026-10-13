@@ -213,6 +213,29 @@ button { cursor: pointer; }
 .stage-hint { position: absolute; left: 0; right: 0; bottom: max(28px, env(safe-area-inset-bottom)); text-align: center; color: var(--ash); font-size: 13.5px; }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 
+/* The worker's log on the stage */
+.stage-log { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 48px)); display: grid; gap: 22px; justify-items: center; text-align: center; }
+.stage.talking .stage-log { top: auto; bottom: 84px; transform: translateX(-50%); gap: 10px; }
+.stage.talking .stage-log ol li:not(:last-child) { display: none; }
+.stage.talking .stage-wheel { display: none; }
+.stage-q { font-family: var(--serif); font-size: clamp(22px, 3vw, 30px); line-height: 1.25; color: var(--ivory); letter-spacing: -.01em; }
+.stage-q span { display: block; font-family: var(--font); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ash); margin-bottom: 10px; }
+.stage.talking .stage-q { font-size: 16px; color: var(--dust); }
+.stage.talking .stage-q span { display: none; }
+.stage-wheel { width: 56px; height: 56px; border-radius: 50%; border: 3px solid var(--graphite); position: relative; }
+.stage-wheel span { position: absolute; inset: -3px; border-radius: 50%; border: 3px solid transparent; border-top-color: var(--accent); animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.stage-log ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; justify-items: start; }
+.stage-log li { display: flex; align-items: center; gap: 12px; font-size: 15.5px; color: var(--dust); animation: fadein .25s ease-out; }
+.stage-log li i { width: 18px; height: 18px; border-radius: 50%; flex: none; position: relative; }
+.stage-log li.done { color: var(--ash); }
+.stage-log li.done i { background: rgba(217,119,87,.18); }
+.stage-log li.done i::after { content: ""; position: absolute; left: 5px; top: 4px; width: 5px; height: 8px; border: solid var(--accent); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.stage-log li.live { color: var(--ivory); }
+.stage-log li.live i { border: 2px solid var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+.stage-err { color: #E8A090; font-size: 15px; max-width: 460px; line-height: 1.45; }
+
 .unlock { position: fixed; inset: 0; z-index: 110; display: grid; place-items: center; background: rgba(31,30,29,.92); }
 .unlock button { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 28px 36px; border-radius: 24px; border: 1px solid var(--line-2); background: var(--slate); color: var(--mist); font-size: 18px; font-weight: 600; }
 

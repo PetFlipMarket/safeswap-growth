@@ -2,14 +2,19 @@
 import { useEffect, useRef } from "react";
 import { useVoice } from "./Voice";
 
-// The blank page with the line. Shows whenever the machine is talking.
+// The worker's screen. Comes up the moment a question lands on the laptop:
+// the question, a wheel and the steps while it works, then the line while it talks.
 export default function Stage() {
   const v = useVoice();
   const canvas = useRef(null);
-  const on = v.state === "speaking" || v.state === "briefing";
+  const s = v.state;
+  const talking = s === "speaking" || s === "briefing";
+  const working = s === "thinking" || s === "loading";
+  const on = talking || working || !!v.job?.error;
+  const job = v.job;
 
   useEffect(() => {
-    if (!on) return;
+    if (!talking) return;
     const cv = canvas.current, g = cv.getContext("2d");
     let raf, t0 = performance.now();
     const data = new Uint8Array(2048);
@@ -22,9 +27,9 @@ export default function Stage() {
       if (an && !v.synthetic) {
         an.getByteTimeDomainData(data);
         for (let i = 0; i < N; i++) {
-          let s = 0; const a = Math.floor((i / N) * data.length), b = Math.floor(((i + 1) / N) * data.length);
-          for (let k = a; k < b; k++) s += (data[k] - 128) / 128;
-          pts.push(s / Math.max(1, b - a));
+          let sum = 0; const a = Math.floor((i / N) * data.length), b = Math.floor(((i + 1) / N) * data.length);
+          for (let k = a; k < b; k++) sum += (data[k] - 128) / 128;
+          pts.push(sum / Math.max(1, b - a));
         }
       } else {
         const k = (now - t0) / 1000;
@@ -34,7 +39,7 @@ export default function Stage() {
       g.lineWidth = 3; g.lineJoin = "round"; g.lineCap = "round"; g.strokeStyle = grad; g.shadowColor = "rgba(217,119,87,.5)"; g.shadowBlur = 18;
       g.beginPath();
       for (let i = 0; i < N; i++) {
-        const x = (i / (N - 1)) * W, env = Math.sin((i / (N - 1)) * Math.PI); // quiet at the edges
+        const x = (i / (N - 1)) * W, env = Math.sin((i / (N - 1)) * Math.PI);
         const y = mid - pts[i] * amp * 2.2 * env;
         i ? g.lineTo(x, y) : g.moveTo(x, y);
       }
@@ -42,16 +47,42 @@ export default function Stage() {
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [talking, v]);
+
+  useEffect(() => {
+    if (!on) return;
     const key = (e) => { if (e.key === "Escape") v.stop(); };
     window.addEventListener("keydown", key);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("keydown", key); };
+    return () => window.removeEventListener("keydown", key);
   }, [on, v]);
 
   if (!on) return null;
+  const steps = job?.steps || [];
+  const err = job?.error;
   return (
-    <div className="stage" onClick={v.stop} role="dialog" aria-label="The machine is speaking. Tap to stop.">
-      <canvas ref={canvas} />
-      <span className="stage-hint">tap to stop</span>
+    <div className={`stage ${talking ? "talking" : "working"}`} onClick={v.stop} role="dialog" aria-label={talking ? "The machine is speaking. Tap to stop." : "The machine is working. Tap to cancel."}>
+      {talking && <canvas ref={canvas} />}
+      <div className="stage-log" aria-live="polite">
+        {job?.question && <div className="stage-q"><span>{s === "briefing" ? "Playing" : "Heard"}</span>{job.question}</div>}
+        {!talking && !err && <div className="stage-wheel" aria-hidden="true"><span /></div>}
+        <ol>
+          {steps.map((t, i) => {
+            const last = i === steps.length - 1;
+            const live = last && working;
+            return (
+              <li key={i} className={live ? "live" : "done"}>
+                <i aria-hidden="true" />
+                <span>{t}{live && job?.pct != null ? ` · ${job.pct}%` : ""}</span>
+              </li>
+            );
+          })}
+          {working && steps.length === 0 && <li className="live"><i aria-hidden="true" /><span>Picking it up</span></li>}
+          {talking && <li className="live"><i aria-hidden="true" /><span>{s === "briefing" ? "Playing the briefing" : "Talking"}</span></li>}
+        </ol>
+        {err && <div className="stage-err">{err}</div>}
+      </div>
+      <span className="stage-hint">{talking ? "tap to stop" : err ? "tap to close" : "tap to cancel"}</span>
     </div>
   );
 }
