@@ -21,6 +21,7 @@ export default function VoicePhone({ hasAudio }) {
         {hasAudio && <button type="button" onClick={() => v.sendRemote("play")}>Play today's briefing on my laptop</button>}
         <button type="button" onClick={() => v.sendRemote("stop")}>Stop my laptop</button>
         <a href="/growth">Stats</a>
+        <span className="vver">v4</span>
       </div>
     </div>
   );

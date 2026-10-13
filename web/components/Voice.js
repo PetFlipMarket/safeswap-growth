@@ -18,8 +18,9 @@ export function VoiceProvider({ children, briefing }) {
   const token = useRef(0), kokoro = useRef(null), recRef = useRef(null), pending = useRef(null), history = useRef([]);
   const id = useRef(Math.random().toString(36).slice(2));
 
+  const isRemote = () => window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 900;
   useEffect(() => {
-    setIsTouch(window.matchMedia("(pointer: coarse)").matches);
+    setIsTouch(isRemote());
     const unlock = () => { ensureCtx(); };
     document.addEventListener("pointerdown", unlock, { once: true, passive: true });
     return () => document.removeEventListener("pointerdown", unlock);
@@ -63,7 +64,12 @@ export function VoiceProvider({ children, briefing }) {
     return start + buffer.duration;
   }, []);
 
+  const sendRemote = useCallback(async (cmd, text) => {
+    await fetch("/api/remote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ cmd, text: text || "", src: id.current }) }).catch(() => {});
+  }, []);
+
   const playBriefing = useCallback(async () => {
+    if (isRemote()) return sendRemote("play");
     if (state === "briefing") return stop();
     const c = await ready(() => playBriefing()); if (!c) return;
     stop(); const my = ++token.current; setState("thinking");
@@ -74,7 +80,7 @@ export function VoiceProvider({ children, briefing }) {
       startRef.current = c.currentTime; durRef.current = buf.duration;
       schedule(c, buf, "briefing", my, c.currentTime);
     } catch { setState("idle"); }
-  }, [state, stop, ready, schedule]);
+  }, [state, stop, ready, schedule, sendRemote]);
 
   const localVoice = useCallback(async () => {
     if (kokoro.current) return kokoro.current;
@@ -85,6 +91,7 @@ export function VoiceProvider({ children, briefing }) {
   }, []);
 
   const speakText = useCallback(async (text) => {
+    if (isRemote()) return setState("idle"); // a phone never speaks; the laptop does
     const c = await ready(() => speakText(text)); if (!c) return;
     stop(); const my = ++token.current;
     // 1. A server voice, if a key is configured.
@@ -126,23 +133,20 @@ export function VoiceProvider({ children, briefing }) {
     } catch { setLastAnswer("Couldn't reach the machine. Try again."); setState("idle"); }
   }, [speakText]);
 
-  const sendRemote = useCallback(async (cmd, text) => {
-    await fetch("/api/remote", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ cmd, text: text || "", src: id.current }) }).catch(() => {});
-  }, []);
-
   // Listen. On the phone the words go to the laptop; on the laptop they're answered here.
   const listen = useCallback(() => {
     if (state === "speaking" || state === "briefing") return stop();
     if (state === "listening") return recRef.current?.stop();
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
-    if (!isTouch) ensureCtx();
+    const remote = isRemote();
+    if (!remote) ensureCtx();
     const r = new SR(); r.lang = "en-GB"; r.interimResults = false; r.maxAlternatives = 1;
     let text = "";
     r.onresult = (e) => { text = Array.from(e.results).map((x) => x[0].transcript).join(" "); };
     r.onerror = () => setState("idle");
     r.onend = async () => {
       if (!text) return setState((s) => (s === "listening" ? "idle" : s));
-      if (isTouch) { await sendRemote("ask", text); setState("sent"); setTimeout(() => setState((s) => (s === "sent" ? "idle" : s)), 2500); }
+      if (remote) { await sendRemote("ask", text); setState("sent"); setTimeout(() => setState((s) => (s === "sent" ? "idle" : s)), 2500); }
       else ask(text);
     };
     recRef.current = r; setState("listening"); r.start();

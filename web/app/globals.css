@@ -236,4 +236,5 @@ button { cursor: pointer; }
   .vlinks { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 16px; }
   .vlinks button, .vlinks a { background: none; border: 0; padding: 6px 2px; color: var(--dust); font-size: 15.5px; }
   .vlinks a { color: var(--ash); font-size: 13.5px; }
+  .vver { color: #4A4742; font-size: 11px; }
 }
