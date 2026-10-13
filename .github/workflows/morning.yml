@@ -35,7 +35,13 @@ jobs:
           [ -f kokoro/voices-v1.0.bin ] || curl -sSL -o kokoro/voices-v1.0.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
       - name: Pull stats
         working-directory: jobs
-        run: python daily_stats.py
+        shell: bash
+        run: |
+          set -o pipefail
+          python daily_stats.py 2>&1 | tee out.txt || { echo "::error title=daily_stats::$(tail -c 1500 out.txt | tr '\n' ' ')"; exit 1; }
       - name: Write and voice the briefing
         working-directory: jobs
-        run: python briefing.py
+        shell: bash
+        run: |
+          set -o pipefail
+          python briefing.py 2>&1 | tee out.txt || { echo "::error title=briefing::$(tail -c 1500 out.txt | tr '\n' ' ')"; exit 1; }
