@@ -1,5 +1,6 @@
 import { db } from "../lib/db";
 import Hero from "./Hero";
+import Ask from "./Ask";
 
 export const dynamic = "force-dynamic";
 
@@ -167,6 +168,8 @@ export default async function Page({ searchParams }) {
           <div className="note">At this pace: <b>{fmt(projected)}</b> new users by month end.</div>
         </section>
       </div>
+
+      <Ask />
 
       <section className="kpis" aria-label={`Key numbers, ${RANGES[R]}`}>
         {kpis.map((x) => (
