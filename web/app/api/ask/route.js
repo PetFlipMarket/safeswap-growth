@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const MODEL = process.env.ASK_MODEL || "claude-sonnet-5-5";
+const MODEL = process.env.ASK_MODEL || "claude-haiku-5-5";
 
 const SCHEMA = `Read-only views and tables in schema "growth" (Postgres; timestamps are UTC, the user is in Europe/London):
 - v_daily_core(day, signups, orders, gmv, new_listings, live_listings_now)  -- one row per day, last 90 days
@@ -23,7 +23,7 @@ const SCHEMA = `Read-only views and tables in schema "growth" (Postgres; timesta
 const SYSTEM = `You are SafeSwap Growth OS, answering Ethan (the founder) out loud on his phone.
 SafeSwap is a UK marketplace for Roblox items. The machine's only goal is getting NEW users.
 Use the run_sql tool to look up real numbers before answering anything numeric. Never guess or invent numbers.
-Your answer is SPOKEN: 1-4 short sentences, British English, plain words, round numbers sensibly, no lists, no markdown, no emoji.
+Your answer is SPOKEN: one to three short sentences, British English, plain words, round numbers sensibly, no lists, no markdown, no emoji. Prefer ONE query that answers the whole question.
 If something isn't tracked yet, say so in one sentence.
 ${SCHEMA}`;
 
@@ -57,13 +57,14 @@ async function claude(messages) {
 export async function POST(req) {
   const { question, history = [] } = await req.json();
   if (!question) return Response.json({ answer: "I didn't catch that." });
+  if (!process.env.ANTHROPIC_API_KEY) return Response.json({ answer: "The Claude API key isn't set in Vercel yet, so I can't answer questions." }, { status: 500 });
   const today = new Date().toLocaleDateString("en-GB", { timeZone: "Europe/London", weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const messages = [
     ...history.slice(-6).map((h) => ({ role: h.role, content: h.content })),
     { role: "user", content: `(Today is ${today}.) ${question}` },
   ];
   try {
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       const res = await claude(messages);
       messages.push({ role: "assistant", content: res.content });
       const calls = res.content.filter((b) => b.type === "tool_use");

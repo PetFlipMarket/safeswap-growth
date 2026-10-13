@@ -9,7 +9,9 @@ export default function VoicePhone({ hasAudio }) {
   const [canListen, setCanListen] = useState(true);
   useEffect(() => { setCanListen(!!(window.SpeechRecognition || window.webkitSpeechRecognition)); }, []);
   const s = v.state;
-  const label = { idle: canListen ? "Tap and ask" : "Voice isn't supported in this browser", listening: "Listening", sent: "Sent to your laptop", thinking: "Thinking", loading: "Thinking", speaking: "Talking", briefing: "Talking" }[s] || "Tap and ask";
+  const rs = v.remoteStatus;
+  const remoteLabel = { thinking: "Laptop is thinking", loading: "Laptop is getting the voice ready (first time only)", speaking: "Laptop is talking", briefing: "Laptop is playing the briefing" }[rs] || (rs?.startsWith("error") ? rs.replace(/^error:\s*/, "Laptop says: ") : "Sent to your laptop");
+  const label = { idle: canListen ? "Tap and ask" : "Voice isn't supported in this browser", listening: "Listening", sent: remoteLabel }[s] || "Tap and ask";
   return (
     <div className="vphone phone-only">
       <button type="button" className={`vbtn ${s}`} onClick={v.listen} disabled={!canListen} aria-label={label}>
@@ -18,10 +20,10 @@ export default function VoicePhone({ hasAudio }) {
       </button>
       <div className="vlabel">{label}</div>
       <div className="vlinks">
-        {hasAudio && <button type="button" onClick={() => v.sendRemote("play")}>Play today's briefing on my laptop</button>}
+        {hasAudio && <button type="button" onClick={() => v.remoteCommand("play")}>Play today's briefing on my laptop</button>}
         <button type="button" onClick={() => v.sendRemote("stop")}>Stop my laptop</button>
         <a href="/growth">Stats</a>
-        <span className="vver">v4</span>
+        <span className="vver">v8</span>
       </div>
     </div>
   );

@@ -16,7 +16,7 @@ async function ensure() {
 
 export async function POST(req) {
   const { cmd, src, text } = await req.json();
-  if (!["play", "pause", "stop", "ask"].includes(cmd)) return Response.json({ ok: false }, { status: 400 });
+  if (!["play", "pause", "stop", "ask", "status"].includes(cmd)) return Response.json({ ok: false }, { status: 400 });
   const t = String(text || "").slice(0, 500);
   if (process.env.PREVIEW_FIXTURE) { mem.push({ id: mem.length + 1, cmd, src, text: t }); return Response.json({ ok: true }); }
   await ensure();
@@ -25,10 +25,12 @@ export async function POST(req) {
 }
 
 export async function GET(req) {
-  const after = Number(new URL(req.url).searchParams.get("after") || 0);
-  if (process.env.PREVIEW_FIXTURE) return Response.json({ cmds: after ? mem.filter((c) => c.id > after) : [], last: mem.length });
+  const p = new URL(req.url).searchParams;
+  const hasAfter = p.has("after");
+  const after = Number(p.get("after") || 0);
+  if (process.env.PREVIEW_FIXTURE) return Response.json({ cmds: hasAfter ? mem.filter((c) => c.id > after) : [], last: mem.length });
   await ensure();
-  const rows = after
+  const rows = hasAfter
     ? await db()`select id, cmd, src, text from growth.remote where id > ${after} and created_at > now() - interval '30 seconds' order by id`
     : [];
   const [{ m }] = await db()`select coalesce(max(id), 0)::int m from growth.remote`;
