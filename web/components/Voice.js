@@ -58,6 +58,7 @@ export function VoiceProvider({ children, briefing }) {
     for (const s of queue.current) { try { s.stop(); } catch {} }
     queue.current = [];
     window.speechSynthesis?.cancel();
+    say.current = { ...say.current, q: [], running: false, open: false, at: 0, synth: false };
     setSynthetic(false);
     return token.current;
   }, []);
@@ -77,18 +78,25 @@ export function VoiceProvider({ children, briefing }) {
     pending.current = retry; setNeedsUnlock(true); return null;
   }, [ensureCtx]);
 
+  // Everything spoken goes through one pipeline: sentences queue up, each is turned into audio
+  // (server voice → Adam on this laptop → the browser's voice) and played gaplessly in order.
+  const say = useRef({ q: [], running: false, open: false, at: 0, synth: false, server: null, local: true });
+
+  const finishIfDone = useCallback((my) => {
+    const p = say.current;
+    if (my !== token.current || p.open || p.q.length || p.running || p.synth || queue.current.length) return;
+    setState("idle"); setJob(null); sendRemote("status", "done");
+  }, [sendRemote]);
+
   const schedule = useCallback((c, buffer, kind, my, at) => {
     const s = c.createBufferSource(); s.buffer = buffer; s.connect(analyserRef.current);
     const start = Math.max(at, c.currentTime + 0.02); s.start(start);
     if (queue.current.length === 0) sendRemote("status", kind === "briefing" ? "briefing" : "speaking");
     queue.current.push(s);
-    s.onended = () => {
-      queue.current = queue.current.filter((x) => x !== s);
-      if (my === token.current && queue.current.length === 0) { setState("idle"); setJob(null); sendRemote("status", "done"); }
-    };
+    s.onended = () => { queue.current = queue.current.filter((x) => x !== s); finishIfDone(my); };
     setSynthetic(false); setState(kind);
     return start + buffer.duration;
-  }, [sendRemote]);
+  }, [sendRemote, finishIfDone]);
 
   const playBriefing = useCallback(async () => {
     if (isRemote()) return sendRemote("play");
@@ -105,67 +113,91 @@ export function VoiceProvider({ children, briefing }) {
     } catch (e) { fail(my, e.message || "Couldn't play the briefing"); }
   }, [state, stop, cancel, ready, schedule, fail, sendRemote]);
 
-  const localVoice = useCallback(async (my) => {
-    if (kokoro.current) return kokoro.current;
-    setState("loading"); step(my, "Getting Adam's voice ready (one-off download)"); sendRemote("status", "loading");
-    const m = await import(/* webpackIgnore: true */ KOKORO_URL);
-    const gpu = !!navigator.gpu; // WebGPU is many times faster than WASM for this model
-    const tts = await m.KokoroTTS.from_pretrained(KOKORO_MODEL, {
-      dtype: gpu ? "fp32" : "q8", device: gpu ? "webgpu" : "wasm",
-      progress_callback: (p) => { if (p.status === "progress" && my === token.current) setJob((j) => (j ? { ...j, pct: Math.round(p.progress || 0) } : j)); },
-    });
-    kokoro.current = tts; setJob((j) => (j ? { ...j, pct: undefined } : j));
-    return tts;
+  // Adam, generated on this laptop. Loaded once (quietly at page open, so it's ready before the first question).
+  const loading = useRef(null);
+  const localVoice = useCallback((my, quiet) => {
+    if (kokoro.current) return Promise.resolve(kokoro.current);
+    if (!quiet) { setState("loading"); step(my, "Getting Adam's voice ready (one-off download)"); sendRemote("status", "loading"); }
+    if (!loading.current) loading.current = (async () => {
+      const m = await import(/* webpackIgnore: true */ KOKORO_URL);
+      const gpu = !!navigator.gpu; // WebGPU is many times faster than WASM for this model
+      const tts = await m.KokoroTTS.from_pretrained(KOKORO_MODEL, {
+        dtype: gpu ? "fp32" : "q8", device: gpu ? "webgpu" : "wasm",
+        progress_callback: (p) => { if (p.status === "progress") setJob((j) => (j ? { ...j, pct: Math.round(p.progress || 0) } : j)); },
+      });
+      kokoro.current = tts; setJob((j) => (j ? { ...j, pct: undefined } : j));
+      return tts;
+    })().catch((e) => { loading.current = null; throw e; });
+    return loading.current;
   }, [step, sendRemote]);
 
-  // Speak a finished answer. `my` is the job's token; if a newer job started, this one quietly stops.
-  const speakText = useCallback(async (text, my = token.current) => {
-    if (isRemote()) return setState("idle"); // a phone never speaks; the laptop does
-    const c = await ready(() => speakText(text, my)); if (!c) return;
-    if (my !== token.current) return;
-    // 1. A server voice, if a key is configured.
-    try {
-      const r = await fetch("/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }), signal: abort.current?.signal });
-      if (r.ok) { const buf = await c.decodeAudioData(await r.arrayBuffer()); if (my === token.current) schedule(c, buf, "speaking", my, c.currentTime); return; }
-    } catch (e) { if (e.name === "AbortError") return; }
-    // 2. Adam, generated on this laptop, one sentence at a time so it starts quickly.
-    try {
-      const tts = await localVoice(my); if (my !== token.current) return;
-      const parts = (text.match(/[^.!?]+[.!?]+["')\]]*|[^.!?]+$/g) || [text]).map((p) => p.trim()).filter(Boolean);
-      step(my, `Making the voice, line 1 of ${parts.length}`);
-      let at = c.currentTime + 0.05; setState("thinking");
-      for (let i = 0; i < parts.length; i++) {
-        const s = parts[i];
-        if (i) setJob((j) => (j ? { ...j, steps: [...j.steps.slice(0, -1), `Making the voice, line ${i + 1} of ${parts.length}`] } : j));
-        // If a line takes more than 25s the laptop is too slow for this; fall back to its own voice.
+  // One sentence → an AudioBuffer, or null if only the browser's own voice is left.
+  const makeAudio = useCallback(async (text, my, c) => {
+    const p = say.current;
+    if (p.server !== false) {
+      try {
+        const r = await fetch("/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }), signal: abort.current?.signal });
+        if (r.ok) { p.server = true; return await c.decodeAudioData(await r.arrayBuffer()); }
+        if (r.status === 404) p.server = false;
+      } catch (e) { if (e.name === "AbortError") return null; }
+    }
+    if (p.local) {
+      try {
+        const tts = await localVoice(my); if (my !== token.current) return null;
         const a = await Promise.race([
-          tts.generate(s, { voice: "am_adam", speed: 1.05 }),
+          tts.generate(text, { voice: "am_adam", speed: 1.05 }),
           new Promise((_, rej) => setTimeout(() => rej(new Error("local voice too slow")), 25000)),
         ]);
-        if (my !== token.current) return;
         const buf = c.createBuffer(1, a.audio.length, a.sampling_rate); buf.copyToChannel(a.audio, 0);
-        at = schedule(c, buf, "speaking", my, at);
-      }
-      return;
-    } catch (e) { console.warn("local voice unavailable", e); for (const q of queue.current) { try { q.stop(); } catch {} } queue.current = []; }
-    if (my !== token.current) return;
-    // 3. The browser's own voice.
-    if (!("speechSynthesis" in window)) return fail(my, "No voice is available on this laptop");
-    step(my, "Speaking with the laptop's own voice"); sendRemote("status", "speaking");
+        return buf;
+      } catch (e) { console.warn("local voice unavailable", e); p.local = false; }
+    }
+    return null;
+  }, [localVoice]);
+
+  const synthSay = useCallback((text, my) => new Promise((res) => {
+    if (!("speechSynthesis" in window)) return res();
     const u = new SpeechSynthesisUtterance(text);
     const vs = window.speechSynthesis.getVoices();
     u.voice = vs.find((v) => /en-(US|GB)/i.test(v.lang) && /male|daniel|aaron|alex|fred|george|arthur/i.test(v.name)) || vs.find((v) => /en-US/i.test(v.lang)) || null;
-    u.rate = 1.03;
-    u.onend = () => { if (my !== token.current) return; setSynthetic(false); setState("idle"); setJob(null); sendRemote("status", "done"); };
-    u.onerror = u.onend;
-    try { setSynthetic(true); setState("speaking"); window.speechSynthesis.speak(u); }
-    catch (e) { console.warn("browser voice failed", e); fail(my, "The laptop's voice couldn't start"); }
-  }, [ready, schedule, localVoice, step, fail, sendRemote]);
+    u.rate = 1.03; u.onend = u.onerror = () => res();
+    try { setSynthetic(true); setState("speaking"); if (my === token.current) sendRemote("status", "speaking"); window.speechSynthesis.speak(u); } catch { res(); }
+  }), [sendRemote]);
 
-  // The worker. A question arrives, older work is dropped, each step shows on the stage, then the answer is spoken.
+  const pump = useCallback(async (my, c) => {
+    const p = say.current; if (p.running) return; p.running = true;
+    try {
+      while (p.q.length && my === token.current) {
+        const text = p.q.shift();
+        const buf = await makeAudio(text, my, c); if (my !== token.current) return;
+        if (buf) { p.at = schedule(c, buf, "speaking", my, Math.max(p.at, c.currentTime)); }
+        else { p.synth = true; await synthSay(text, my); p.synth = false; }
+      }
+    } finally { p.running = false; }
+    finishIfDone(my);
+  }, [makeAudio, schedule, synthSay, finishIfDone]);
+
+  // Queue a line to be spoken. `my` is the job's token; if a newer job started, it's dropped.
+  const speak = useCallback((text, my, c) => {
+    if (my !== token.current || !text?.trim()) return;
+    say.current.q.push(text.trim()); pump(my, c);
+  }, [pump]);
+
+  const speakText = useCallback(async (text) => {
+    if (isRemote()) return;
+    const c = await ready(() => speakText(text)); if (!c) return;
+    const my = cancel(); say.current = { ...say.current, q: [], running: false, open: false, at: 0, synth: false };
+    setJob({ question: "", steps: [] });
+    speak(text, my, c);
+  }, [ready, cancel, speak]);
+
+  // The worker. A question arrives, older work is dropped, each step shows on the stage, and the answer is spoken
+  // line by line as it's written.
   const ask = useCallback(async (q) => {
     q = (q || "").trim(); if (!q) return;
+    const c = await ready(() => ask(q)); if (!c) return;
     const my = cancel(); const ac = new AbortController(); abort.current = ac;
+    say.current = { ...say.current, q: [], running: false, open: true, at: 0, synth: false };
     setJob({ question: q, steps: [] }); setState("thinking"); sendRemote("status", "thinking");
     try {
       const r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: q, history: history.current }), signal: ac.signal });
@@ -179,16 +211,18 @@ export function VoiceProvider({ children, briefing }) {
           const ev = JSON.parse(line);
           if (my !== token.current) return;
           if (ev.type === "step") { step(my, ev.text); sendRemote("status", "thinking: " + ev.text); }
+          else if (ev.type === "say") speak(ev.text, my, c);
           else if (ev.type === "answer") answer = ev.text;
-          else if (ev.type === "error") return fail(my, ev.text);
+          else if (ev.type === "error") { say.current.open = false; return fail(my, ev.text); }
         }
       }
       if (my !== token.current) return;
+      say.current.open = false;
       if (!answer) return fail(my, "No answer came back");
       history.current = [...history.current, { role: "user", content: q }, { role: "assistant", content: answer }].slice(-8);
-      setLastAnswer(answer); await speakText(answer, my);
-    } catch (e) { if (e.name !== "AbortError") { console.warn("ask failed", e); fail(my, "Couldn't reach the machine"); } }
-  }, [cancel, speakText, step, fail, sendRemote]);
+      setLastAnswer(answer); finishIfDone(my);
+    } catch (e) { say.current.open = false; if (e.name !== "AbortError") { console.warn("ask failed", e); fail(my, "Couldn't reach the machine"); } }
+  }, [ready, cancel, speak, step, fail, finishIfDone, sendRemote]);
 
   // Phone: note where the queue is, send, then watch the laptop's status from that point.
   const watchLaptop = useCallback(async (since) => {
@@ -243,6 +277,11 @@ export function VoiceProvider({ children, briefing }) {
       check(); const t = setInterval(check, 6000);
       return () => clearInterval(t);
     }
+    // Warm the voice up while nothing's happening, so the first answer doesn't wait for it.
+    const warm = setTimeout(async () => {
+      try { const r = await fetch("/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "hi" }) }); if (r.ok) { say.current.server = true; return; } } catch {}
+      say.current.server = false; localVoice(-1, true).catch(() => {});
+    }, 1500);
     let last = null, timer, busy = false, beat = 0;
     const tick = async () => {
       if (busy) return;
@@ -263,8 +302,8 @@ export function VoiceProvider({ children, briefing }) {
       busy = false;
     };
     tick(); timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, [isTouch, sendRemote]);
+    return () => { clearInterval(timer); clearTimeout(warm); };
+  }, [isTouch, sendRemote, localVoice]);
 
   const unlock = useCallback(async () => {
     const c = ensureCtx(); await c.resume().catch(() => {});
