@@ -1,0 +1,41 @@
+name: Morning briefing
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 07:00 UK summer time (06:00 UTC)
+  workflow_dispatch: {}
+
+jobs:
+  morning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SAFESWAP_READONLY_DB_URL: ${{ secrets.SAFESWAP_READONLY_DB_URL }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: jobs/requirements.txt
+      - run: pip install -r jobs/requirements.txt
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Cache voice model
+        uses: actions/cache@v4
+        with:
+          path: jobs/kokoro
+          key: kokoro-v1.0
+      - name: Download voice model
+        working-directory: jobs
+        run: |
+          mkdir -p kokoro
+          [ -f kokoro/kokoro-v1.0.onnx ] || curl -sSL -o kokoro/kokoro-v1.0.onnx https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
+          [ -f kokoro/voices-v1.0.bin ] || curl -sSL -o kokoro/voices-v1.0.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
+      - name: Pull stats
+        working-directory: jobs
+        run: python daily_stats.py
+      - name: Write and voice the briefing
+        working-directory: jobs
+        run: python briefing.py
