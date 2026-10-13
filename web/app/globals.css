@@ -57,3 +57,27 @@ h2 { font-size: 21px; font-weight: 900; }
 .empty { color: var(--dim); font-size: 15px; }
 input, button { font: inherit; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+
+.tabs { display: flex; gap: 4px; padding: 4px; border-radius: 14px; background: #0F0E16; border: 1px solid #24212F; }
+.tab { height: 38px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 10px; font-weight: 700; font-size: 15px; color: var(--muted); text-decoration: none; }
+.tab.on { background: var(--purple); color: #fff; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+.kpis .kpi .v { font-size: 36px; }
+.legend { display: flex; justify-content: space-between; align-items: center; font-size: 15px; }
+.legend span { display: flex; align-items: center; gap: 8px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.note { padding: 12px 14px; border-radius: 14px; background: #1B1726; border: 1px solid #2E2843; font-size: 15px; color: #CFCBE3; }
+.daychart { display: flex; align-items: flex-end; gap: 4px; height: 220px; }
+.daycol { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.daycol span { font-size: 10px; color: var(--muted); }
+.daycol div { width: 100%; border-radius: 4px 4px 2px 2px; background: var(--purple); }
+.daycol:last-child div { background: var(--green); }
+.hours { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
+.hours div { height: 34px; border-radius: 6px; position: relative; }
+.hours span { position: absolute; left: 4px; top: 3px; font-size: 10px; font-family: var(--f-mono), monospace; color: #E7E3FA; }
+.agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.agent { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 16px; background: #1A1724; border: 1px solid #26222F; }
+.w { transition: color .15s; color: #5E5978; }
+.w.said { color: #E7E3FA; }
+.w.now { color: #fff; background: var(--purple); border-radius: 5px; padding: 0 3px; }
+.hero { flex: 1; }
