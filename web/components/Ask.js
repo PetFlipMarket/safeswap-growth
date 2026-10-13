@@ -9,13 +9,13 @@ export default function Ask() {
   const [canListen, setCanListen] = useState(false);
   useEffect(() => { setCanListen(!!(window.SpeechRecognition || window.webkitSpeechRecognition)); }, []);
   const s = v.state;
-  const placeholder = { idle: "Ask the machine", listening: "Listening…", thinking: "Checking the numbers…", speaking: "Talking…", briefing: "Playing the briefing…" }[s];
+  const placeholder = { idle: "Ask the machine", listening: "Listening…", sent: "Sent", thinking: "Checking the numbers…", loading: "Getting the voice ready (one-off download)…", speaking: "Talking…", briefing: "Playing the briefing…" }[s] || "Ask the machine";
   return (
     <div className="ask desk-only">
       <div className="box">
         {v.lastAnswer && s === "idle" && <div className="reply" role="status"><div className="ans">{v.lastAnswer}</div></div>}
         <form onSubmit={(e) => { e.preventDefault(); v.ask(typed); setTyped(""); }}>
-          <button type="button" className={`mic ${s}`} onClick={v.listen} disabled={!canListen || s === "thinking"}
+          <button type="button" className={`mic ${s}`} onClick={v.listen} disabled={!canListen || s === "thinking" || s === "loading"}
             aria-label={s === "listening" ? "Stop listening" : s === "speaking" || s === "briefing" ? "Stop talking" : "Ask by voice"}>
             {s === "thinking"
               ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9" /></svg>
@@ -23,7 +23,7 @@ export default function Ask() {
           </button>
           <label htmlFor="askq" className="sr">Question</label>
           <input id="askq" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={placeholder} autoComplete="off" />
-          <button type="submit" className="go" disabled={s === "thinking" || !typed.trim()}>Ask</button>
+          <button type="submit" className="go" disabled={s === "thinking" || s === "loading" || !typed.trim()}>Ask</button>
         </form>
       </div>
     </div>
