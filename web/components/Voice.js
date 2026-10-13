@@ -16,12 +16,19 @@ export function VoiceProvider({ children, briefing }) {
   const [lastAnswer, setLastAnswer] = useState("");
   const [remoteStatus, setRemoteStatus] = useState("");
   const [job, setJob] = useState(null); // { question, steps: [string], pct?, error? }
+  const [laptopSeen, setLaptopSeen] = useState(null); // seconds since the laptop last checked in (phone side)
   const ctxRef = useRef(null), analyserRef = useRef(null), queue = useRef([]), startRef = useRef(0), durRef = useRef(0);
   const token = useRef(0), kokoro = useRef(null), recRef = useRef(null), pending = useRef(null), history = useRef([]);
   const abort = useRef(null), waiting = useRef(0);
   const id = useRef(Math.random().toString(36).slice(2));
 
-  const isRemote = () => window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 900;
+  // Phone = a touch-first device with no hover (iPhone/Android). Anything with a mouse or trackpad is the laptop,
+  // whatever the window size. ?as=phone or ?as=laptop forces it.
+  const isRemote = () => {
+    const f = new URLSearchParams(window.location.search).get("as");
+    if (f === "phone") return true; if (f === "laptop") return false;
+    return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  };
   useEffect(() => {
     setIsTouch(isRemote());
     const unlock = () => { ensureCtx(); };
@@ -179,15 +186,15 @@ export function VoiceProvider({ children, briefing }) {
 
   // Phone: note where the queue is, send, then watch the laptop's status from that point.
   const watchLaptop = useCallback(async (since) => {
-    const my = ++waiting.current; let last = since || 0;
-    const until = Date.now() + 150000;
+    const my = ++waiting.current; let last = since || 0, seen = false;
+    const t0 = Date.now(), until = t0 + 150000;
     while (my === waiting.current && Date.now() < until) {
       await new Promise((r) => setTimeout(r, 1200));
       try {
         const j = await (await fetch(`/api/remote?after=${last}`)).json(); last = Math.max(last, j.last || 0);
-        const st = (j.cmds || []).filter((c) => c.cmd === "status" && c.src !== id.current).pop();
-        if (!st) continue;
-        setRemoteStatus(st.text);
+        const st = (j.cmds || []).filter((c) => c.cmd === "status" && c.src !== id.current && c.text !== "online").pop();
+        if (!st) { if (Date.now() - t0 > 8000 && !seen) setRemoteStatus("nolaptop"); continue; }
+        seen = true; setRemoteStatus(st.text);
         if (st.text === "done" || st.text.startsWith("error")) { setState("idle"); if (st.text === "done") setRemoteStatus(""); return; }
         setState("sent");
       } catch {}
@@ -224,11 +231,17 @@ export function VoiceProvider({ children, briefing }) {
   const handlers = useRef({});
   handlers.current = { playBriefing, ask, stop };
   useEffect(() => {
-    if (isTouch) return;
-    let last = null, timer, busy = false;
+    if (isTouch) {
+      // Phone: is the laptop listening? Ask every few seconds.
+      const check = async () => { try { const j = await (await fetch("/api/remote")).json(); setLaptopSeen(j.laptop ?? null); } catch {} };
+      check(); const t = setInterval(check, 6000);
+      return () => clearInterval(t);
+    }
+    let last = null, timer, busy = false, beat = 0;
     const tick = async () => {
-      if (busy || document.visibilityState !== "visible") return;
+      if (busy) return;
       busy = true;
+      if (Date.now() - beat > 15000) { beat = Date.now(); sendRemote("status", "online"); }
       try {
         if (last === null) { last = (await (await fetch("/api/remote")).json()).last || 0; busy = false; return; }
         const j = await (await fetch(`/api/remote?after=${last}`)).json();
@@ -245,7 +258,7 @@ export function VoiceProvider({ children, briefing }) {
     };
     tick(); timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [isTouch]);
+  }, [isTouch, sendRemote]);
 
   const unlock = useCallback(async () => {
     const c = ensureCtx(); await c.resume().catch(() => {});
@@ -258,6 +271,6 @@ export function VoiceProvider({ children, briefing }) {
     return { t: Math.min(durRef.current, c.currentTime - startRef.current), d: durRef.current };
   };
 
-  const value = { state, synthetic, isTouch, needsUnlock, lastAnswer, remoteStatus, job, remoteCommand, briefing, analyser: analyserRef, playBriefing, speakText, ask, listen, stop, sendRemote, unlock, progress };
+  const value = { state, synthetic, isTouch, needsUnlock, lastAnswer, remoteStatus, laptopSeen, job, remoteCommand, briefing, analyser: analyserRef, playBriefing, speakText, ask, listen, stop, sendRemote, unlock, progress };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

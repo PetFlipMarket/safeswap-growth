@@ -213,6 +213,13 @@ button { cursor: pointer; }
 .stage-hint { position: absolute; left: 0; right: 0; bottom: max(28px, env(safe-area-inset-bottom)); text-align: center; color: var(--ash); font-size: 13.5px; }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
 
+.vlink { font-size: 13px; color: var(--ash); display: flex; align-items: center; gap: 8px; justify-content: center; }
+.vlink::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--graphite); }
+.vlink.on::before { background: var(--up); box-shadow: 0 0 0 3px rgba(80,180,120,.2); }
+.vlink.off { color: #E8A090; } .vlink.off::before { background: #E8A090; }
+.linkchip { position: fixed; right: 18px; bottom: 16px; z-index: 50; font-size: 12.5px; color: var(--ash); display: flex; align-items: center; gap: 8px; background: var(--raised); border: 1px solid var(--mist); padding: 7px 11px; border-radius: 999px; }
+.linkchip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--up); animation: pulse 2s ease-in-out infinite; }
+
 /* The worker's log on the stage */
 .stage-log { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 48px)); display: grid; gap: 22px; justify-items: center; text-align: center; }
 .stage.talking .stage-log { top: auto; bottom: 84px; transform: translateX(-50%); gap: 10px; }

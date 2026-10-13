@@ -19,6 +19,12 @@ const NAV = [
   { href: "/creators", name: "Creators", icon: I.creators, soon: true },
 ];
 
+function LinkChip() {
+  const v = useVoice();
+  if (v.isTouch || v.state !== "idle") return null;
+  return <div className="linkchip desk-only">Listening for your phone</div>;
+}
+
 function Unlock() {
   const v = useVoice();
   if (!v.needsUnlock) return null;
@@ -55,6 +61,7 @@ export default function Shell({ children, online, briefing, voiceHome = false })
         </nav>
       </div>
       <Stage />
+      <LinkChip />
       <Unlock />
     </VoiceProvider>
   );
