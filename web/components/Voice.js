@@ -109,8 +109,9 @@ export function VoiceProvider({ children, briefing }) {
     if (kokoro.current) return kokoro.current;
     setState("loading"); step(my, "Getting Adam's voice ready (one-off download)"); sendRemote("status", "loading");
     const m = await import(/* webpackIgnore: true */ KOKORO_URL);
+    const gpu = !!navigator.gpu; // WebGPU is many times faster than WASM for this model
     const tts = await m.KokoroTTS.from_pretrained(KOKORO_MODEL, {
-      dtype: "q8", device: "wasm",
+      dtype: gpu ? "fp32" : "q8", device: gpu ? "webgpu" : "wasm",
       progress_callback: (p) => { if (p.status === "progress" && my === token.current) setJob((j) => (j ? { ...j, pct: Math.round(p.progress || 0) } : j)); },
     });
     kokoro.current = tts; setJob((j) => (j ? { ...j, pct: undefined } : j));
@@ -130,18 +131,23 @@ export function VoiceProvider({ children, briefing }) {
     // 2. Adam, generated on this laptop, one sentence at a time so it starts quickly.
     try {
       const tts = await localVoice(my); if (my !== token.current) return;
-      step(my, "Speaking");
-      const parts = text.match(/[^.!?]+[.!?]+["')\]]*|[^.!?]+$/g) || [text];
+      const parts = (text.match(/[^.!?]+[.!?]+["')\]]*|[^.!?]+$/g) || [text]).map((p) => p.trim()).filter(Boolean);
+      step(my, `Making the voice, line 1 of ${parts.length}`);
       let at = c.currentTime + 0.05; setState("thinking");
-      for (const p of parts) {
-        const s = p.trim(); if (!s) continue;
-        const a = await tts.generate(s, { voice: "am_adam", speed: 1.05 });
+      for (let i = 0; i < parts.length; i++) {
+        const s = parts[i];
+        if (i) setJob((j) => (j ? { ...j, steps: [...j.steps.slice(0, -1), `Making the voice, line ${i + 1} of ${parts.length}`] } : j));
+        // If a line takes more than 25s the laptop is too slow for this; fall back to its own voice.
+        const a = await Promise.race([
+          tts.generate(s, { voice: "am_adam", speed: 1.05 }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("local voice too slow")), 25000)),
+        ]);
         if (my !== token.current) return;
         const buf = c.createBuffer(1, a.audio.length, a.sampling_rate); buf.copyToChannel(a.audio, 0);
         at = schedule(c, buf, "speaking", my, at);
       }
       return;
-    } catch (e) { console.warn("local voice unavailable", e); }
+    } catch (e) { console.warn("local voice unavailable", e); for (const q of queue.current) { try { q.stop(); } catch {} } queue.current = []; }
     if (my !== token.current) return;
     // 3. The browser's own voice.
     if (!("speechSynthesis" in window)) return fail(my, "No voice is available on this laptop");
