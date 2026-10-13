@@ -13,7 +13,8 @@ import numpy as np
 from common import db, event, fetch, finish_run, start_run
 
 MODEL = os.environ.get("BRIEFING_MODEL", "claude-sonnet-5-5")
-VOICE = os.environ.get("BRIEFING_VOICE", "bm_george")
+VOICE = os.environ.get("BRIEFING_VOICE", "am_adam")
+LANG = os.environ.get("BRIEFING_LANG", "en-us")
 KOKORO_DIR = os.environ.get("KOKORO_DIR", "kokoro")
 
 SYSTEM = """You are the voice of SafeSwap Growth OS, a marketing machine whose ONLY goal is getting new users
@@ -64,11 +65,20 @@ def write(facts):
 
 
 def speak(text):
+    key = os.environ.get("ELEVENLABS_API_KEY")
+    if key:
+        import urllib.request
+        vid = os.environ.get("ELEVENLABS_VOICE_ID", "pNInz6obpgDQGcFmaJgB")  # Adam
+        body = json.dumps({"text": text, "model_id": "eleven_turbo_v2_5", "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}}).encode()
+        req = urllib.request.Request(f"https://api.elevenlabs.io/v1/text-to-speech/{vid}?output_format=mp3_44100_64", data=body,
+                                     headers={"xi-api-key": key, "content-type": "application/json", "accept": "audio/mpeg"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return r.read()
     from kokoro_onnx import Kokoro
     k = Kokoro(f"{KOKORO_DIR}/kokoro-v1.0.onnx", f"{KOKORO_DIR}/voices-v1.0.bin")
     parts, sr = [], 24000
     for s in [p.strip() for p in re.split(r"(?<=[.!?])\s+", text) if p.strip()]:
-        a, sr = k.create(s, voice=VOICE, speed=1.05, lang="en-gb")
+        a, sr = k.create(s, voice=VOICE, speed=1.08, lang=LANG)
         parts += [a, np.zeros(int(sr * 0.18), dtype=np.float32)]
     audio = np.concatenate(parts)
     with wave.open("briefing.wav", "wb") as w:

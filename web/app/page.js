@@ -2,6 +2,7 @@ import { getDashboard } from "../lib/data";
 import Shell from "../components/Shell";
 import Briefing from "../components/Briefing";
 import Ask from "../components/Ask";
+import VoicePhone from "../components/VoicePhone";
 import Header, { when, whenFull } from "../components/Header";
 import { Area, Bars, Delta, Ring, Stat, fmt, gbp, pct } from "../components/Viz";
 
@@ -18,8 +19,9 @@ export default async function Today({ searchParams }) {
   const online = d.runs.some((r) => r.status === "done");
 
   return (
-    <Shell online={online}>
-      <div className="page">
+    <Shell online={online} briefing={{ hasAudio: !!d.brief?.has_audio, headline: d.brief?.headline }} voiceHome>
+      <VoicePhone hasAudio={!!d.brief?.has_audio} />
+      <div className="page desk-only">
         <Header title={`${greet}, Ethan`} sub={d.updatedAt ? `${dateLabel}, numbers updated at ${when(d.updatedAt)}` : dateLabel} range={d.range} />
 
         <Briefing hasAudio={!!d.brief?.has_audio} headline={d.brief?.headline} plan={d.brief?.plan}
@@ -33,7 +35,7 @@ export default async function Today({ searchParams }) {
             <div><Delta now={k.signups.now} prev={k.signups.prev} suffix=" on the period before" /></div>
             {d.today && <span className="label">Today so far: <b className="num" style={{ color: "var(--mist)" }}>{fmt(d.today.signups)}</b></span>}
             <div className="goal" style={{ borderTop: "1px solid var(--line)", marginTop: 8, paddingTop: 18 }}>
-              <Ring frac={g.mtd / g.goal} color="#D9B04C">{Math.round((g.mtd / g.goal) * 100)}%</Ring>
+              <Ring frac={g.mtd / g.goal} color="#D97757">{Math.round((g.mtd / g.goal) * 100)}%</Ring>
               <div className="txt">
                 <b className="num">{fmt(g.mtd)} of {fmt(g.goal)}</b>
                 <span>{g.monthName} goal (last month +25%)</span>
@@ -45,7 +47,7 @@ export default async function Today({ searchParams }) {
           <section className="block c8" aria-label="New users per day">
             <div className="bhead">
               <div><h2>New users per day</h2><div className="sub">Last 28 days, with the 7-day average</div></div>
-              <div className="legend"><span><i style={{ background: "#8B6CF0" }} />Daily</span><span><i style={{ background: "#D9B04C" }} />7-day average</span></div>
+              <div className="legend"><span><i style={{ background: "#D97757" }} />Daily</span><span><i style={{ background: "#F0EEE6" }} />7-day average</span></div>
             </div>
             <Area days={d.last28} avg={d.avg7} label="New users per day" />
           </section>
@@ -54,8 +56,8 @@ export default async function Today({ searchParams }) {
         <div className="stats" aria-label="Supporting numbers">
           <Stat label="Site visits" value={fmt(k.visits.now)} now={k.visits.now} prev={k.visits.prev} />
           <Stat label="Visits that became users" value={pct(k.signups.now, k.visits.now) + "%"} now={pct(k.signups.now, k.visits.now)} prev={pct(k.signups.prev, k.visits.prev)} />
-          <Stat label="Orders" value={fmt(k.orders.now)} now={k.orders.now} prev={k.orders.prev} series={d.last28.map((x) => x.orders)} color="#4CD98A" />
-          <Stat label="Sales value" value={gbp(k.gmv.now)} now={k.gmv.now} prev={k.gmv.prev} series={d.last28.map((x) => x.gmv)} color="#D9B04C" />
+          <Stat label="Orders" value={fmt(k.orders.now)} now={k.orders.now} prev={k.orders.prev} series={d.last28.map((x) => x.orders)} color="#5BBF8A" />
+          <Stat label="Sales value" value={gbp(k.gmv.now)} now={k.gmv.now} prev={k.gmv.prev} series={d.last28.map((x) => x.gmv)} color="#F0EEE6" />
         </div>
 
         <div className="grid top">

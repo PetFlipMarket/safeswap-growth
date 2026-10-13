@@ -18,7 +18,7 @@ export default async function Machine() {
   const d = await getDashboard(7);
   const online = d.runs.some((r) => r.status === "done");
   return (
-    <Shell online={online}>
+    <Shell online={online} briefing={{ hasAudio: !!d.brief?.has_audio, headline: d.brief?.headline }}>
       <div className="page">
         <Header title="The machine" sub="Six jobs. Two are live, four are coming." showRanges={false} />
         <div className="agents" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>

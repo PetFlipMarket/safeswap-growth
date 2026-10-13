@@ -27,7 +27,7 @@ export function Stat({ label, value, now, prev, series, color }) {
   );
 }
 
-export function Spark({ values, color = "#8B6CF0" }) {
+export function Spark({ values, color = "#D97757" }) {
   const mx = Math.max(...values), mn = Math.min(...values);
   const pts = values.map((v, i) => `${(i * 200) / (values.length - 1)},${34 - ((v - mn) / (mx - mn || 1)) * 30 + 2}`).join(" ");
   return (
@@ -57,12 +57,12 @@ export function Area({ days, avg, label }) {
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <defs>
             <linearGradient id="fillg" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#8B6CF0" stopOpacity=".38" /><stop offset="1" stopColor="#8B6CF0" stopOpacity="0" />
+              <stop offset="0" stopColor="#D97757" stopOpacity=".38" /><stop offset="1" stopColor="#D97757" stopOpacity="0" />
             </linearGradient>
           </defs>
           <path d={area} fill="url(#fillg)" />
-          <polyline points={avgLine} fill="none" stroke="#D9B04C" strokeWidth="1.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" opacity=".85" />
-          <polyline points={line} fill="none" stroke="#8B6CF0" strokeWidth="2.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          <polyline points={avgLine} fill="none" stroke="#F0EEE6" strokeWidth="1.5" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" opacity=".85" />
+          <polyline points={line} fill="none" stroke="#D97757" strokeWidth="2.5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         </svg>
         <span className="dot" style={{ left: `${X(last)}%`, top: `${Y(vals[last])}%` }} />
         <span className="tag num" style={{ left: `${X(last)}%`, top: `${Y(vals[last])}%` }}>{fmt(vals[last])}</span>
@@ -72,7 +72,7 @@ export function Area({ days, avg, label }) {
   );
 }
 
-export function Ring({ frac, color = "#8B6CF0", size = 96, width = 10, track = "#242431", children }) {
+export function Ring({ frac, color = "#D97757", size = 96, width = 10, track = "#383634", children }) {
   const r = (size - width) / 2, c = 2 * Math.PI * r;
   return (
     <div className="ring" style={{ width: size, height: size, flexBasis: size }}>

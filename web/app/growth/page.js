@@ -13,7 +13,7 @@ export default async function Growth({ searchParams }) {
   const peak = d.hours.indexOf(Math.max(...d.hours));
   const online = d.runs.some((r) => r.status === "done");
   return (
-    <Shell online={online}>
+    <Shell online={online} briefing={{ hasAudio: !!d.brief?.has_audio, headline: d.brief?.headline }}>
       <div className="page">
         <Header title="Growth" sub={`Where new users come from and what they want, ${d.rangeLabel}${d.updatedAt ? `. Updated ${when(d.updatedAt)}` : ""}`} range={d.range} base="/growth" />
 
@@ -21,7 +21,7 @@ export default async function Growth({ searchParams }) {
           <Stat label="New users" value={fmt(k.signups.now)} now={k.signups.now} prev={k.signups.prev} series={d.last28.map((x) => x.signups)} />
           <Stat label="Site visits" value={fmt(k.visits.now)} now={k.visits.now} prev={k.visits.prev} />
           <Stat label="Visits that became users" value={pct(k.signups.now, k.visits.now) + "%"} now={pct(k.signups.now, k.visits.now)} prev={pct(k.signups.prev, k.visits.prev)} />
-          <Stat label="New listings" value={fmt(k.listings.now)} now={k.listings.now} prev={k.listings.prev} series={d.last28.map((x) => x.new_listings)} color="#5BA8FF" />
+          <Stat label="New listings" value={fmt(k.listings.now)} now={k.listings.now} prev={k.listings.prev} series={d.last28.map((x) => x.new_listings)} color="#A6A299" />
         </div>
 
         <div className="grid">
@@ -53,8 +53,8 @@ export default async function Growth({ searchParams }) {
         </div>
 
         <div className="stats">
-          <Stat label="Orders (all users)" value={fmt(k.orders.now)} now={k.orders.now} prev={k.orders.prev} series={d.last28.map((x) => x.orders)} color="#4CD98A" />
-          <Stat label="Sales value" value={gbp(k.gmv.now)} now={k.gmv.now} prev={k.gmv.prev} series={d.last28.map((x) => x.gmv)} color="#D9B04C" />
+          <Stat label="Orders (all users)" value={fmt(k.orders.now)} now={k.orders.now} prev={k.orders.prev} series={d.last28.map((x) => x.orders)} color="#5BBF8A" />
+          <Stat label="Sales value" value={gbp(k.gmv.now)} now={k.gmv.now} prev={k.gmv.prev} series={d.last28.map((x) => x.gmv)} color="#F0EEE6" />
           <Stat label="Live listings now" value={fmt(d.liveListings)} />
           <Stat label="Today so far" value={fmt(d.today?.signups)} />
         </div>

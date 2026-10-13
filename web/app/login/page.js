@@ -1,9 +1,11 @@
+import Mark from "../../components/Mark";
+
 export default async function Login({ searchParams }) {
   const sp = await searchParams;
   return (
     <main className="login">
       <form method="post" action="/api/login" className="panel">
-        <img src="/robot.jpg" alt="" />
+        <Mark size={72} />
         <h1>Growth OS</h1>
         <p>SafeSwap's acquisition machine. Founder access only.</p>
         <label htmlFor="pw" className="sr">Password</label>
