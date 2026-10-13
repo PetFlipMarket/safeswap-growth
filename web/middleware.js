@@ -9,4 +9,4 @@ export async function middleware(req) {
   return NextResponse.redirect(new URL("/login", req.url));
 }
 
-export const config = { matcher: ["/((?!_next|favicon.ico).*)"] };
+export const config = { matcher: ["/((?!_next|favicon.ico|manifest.webmanifest|.*\\.(?:png|jpg)$).*)"] };

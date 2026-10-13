@@ -8,7 +8,12 @@ import "@fontsource/jetbrains-mono/500.css";
 import "@fontsource/jetbrains-mono/700.css";
 import "./globals.css";
 
-export const metadata = { title: "SafeSwap Growth OS", robots: { index: false } };
+export const metadata = {
+  title: "SafeSwap Growth OS",
+  robots: { index: false },
+  appleWebApp: { capable: true, title: "Growth OS", statusBarStyle: "black-translucent" },
+  icons: { apple: "/apple-touch-icon.png", icon: "/icon-192.png" },
+};
 export const viewport = { themeColor: "#0C0B12" };
 
 export default function RootLayout({ children }) {

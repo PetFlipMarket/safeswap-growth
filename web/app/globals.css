@@ -95,3 +95,26 @@ input, button { font: inherit; }
 .askgo { height: 46px; padding: 0 18px; border-radius: 12px; border: none; background: var(--purple); color: #fff; font-weight: 800; cursor: pointer; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 @media (max-width: 600px) { .mic { width: 84px; height: 84px; flex-basis: 84px; } .wrap { padding: 14px 12px 40px; } .orbcol { flex-basis: 100%; } }
+
+.botcol { flex: 0 0 300px; display: flex; flex-direction: column; align-items: center; gap: 14px; margin: 0 auto; }
+.bot { position: relative; width: 280px; height: 280px; border-radius: 50%; padding: 0; border: 3px solid #C9A227; background: #000; cursor: pointer; overflow: visible; box-shadow: 0 0 0 8px rgba(201,162,39,.12), 0 24px 70px rgba(139,108,240,.45); transition: transform .2s; }
+.bot:hover { transform: scale(1.02); }
+.bot:disabled { cursor: default; }
+.bot:focus-visible { outline: 3px solid #fff; outline-offset: 6px; }
+.bot img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: 50% 30%; display: block; }
+.bot .eye { position: absolute; width: 30px; height: 18px; border-radius: 50%; background: radial-gradient(circle, rgba(140,220,255,.95) 0%, rgba(80,170,255,.55) 40%, transparent 72%); top: 34.5%; transform: translate(-50%, -50%); animation: blink 4s ease-in-out infinite; mix-blend-mode: screen; pointer-events: none; }
+.bot .eye.l { left: 39%; } .bot .eye.r { left: 57%; }
+.bot.talking .eye { animation: glow .45s ease-in-out infinite alternate; width: 44px; height: 26px; }
+@keyframes blink { 0%, 92%, 100% { opacity: .9; } 95% { opacity: .1; } }
+@keyframes glow { from { opacity: .6; } to { opacity: 1; filter: brightness(1.6); } }
+.bot .botring { position: absolute; inset: -14px; border-radius: 50%; border: 2px solid transparent; border-top-color: #C9A227; border-right-color: rgba(139,108,240,.6); animation: spin 5s linear infinite; pointer-events: none; }
+.bot .botring.b { inset: -28px; border: 1px dashed #4B3F7A; animation: spin 40s linear infinite reverse; }
+.bot.talking .botring { animation-duration: 1.4s; }
+.bot.talking { box-shadow: 0 0 0 10px rgba(80,170,255,.18), 0 0 60px rgba(80,170,255,.45), 0 24px 70px rgba(139,108,240,.55); }
+.bot .scan { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; pointer-events: none; background: linear-gradient(180deg, transparent 45%, rgba(120,200,255,.18) 50%, transparent 55%); background-size: 100% 220%; opacity: 0; }
+.bot.talking .scan { opacity: 1; animation: scan 2.2s linear infinite; }
+@keyframes scan { from { background-position: 0 -100%; } to { background-position: 0 120%; } }
+.botlabel { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--purple2); text-align: center; min-height: 52px; justify-content: flex-end; }
+.eq { display: flex; gap: 4px; height: 24px; align-items: center; }
+.eq span { width: 5px; height: 24px; border-radius: 3px; background: #7CC8FF; animation: bar .7s ease-in-out infinite; }
+@media (max-width: 600px) { .bot { width: 230px; height: 230px; } .botcol { flex-basis: 100%; } }

@@ -144,7 +144,7 @@ export default async function Page({ searchParams }) {
 
       <div className="row">
         <div style={{ flex: "999 1 700px", minWidth: 0, display: "flex" }}>
-          <Hero hasAudio={!!brief?.has_audio} text={brief?.text} headline={brief?.headline} dayLabel={dayLabel} />
+          <Hero hasAudio={!!brief?.has_audio} headline={brief?.headline} dayLabel={dayLabel} />
         </div>
         <section className="card" style={{ flex: "1 1 320px", display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
