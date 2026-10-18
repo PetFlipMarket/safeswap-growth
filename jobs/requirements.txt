@@ -2,3 +2,5 @@ psycopg[binary]==3.2.3
 anthropic>=0.40.0
 kokoro-onnx==0.4.9
 numpy<2.3
+pillow>=10.4
+scipy>=1.13

@@ -1,7 +1,9 @@
-node_modules/
-.next/
-.env*
-__pycache__/
 *.mp4
 *.wav
+.env*
+.next/
+__pycache__/
+jobs/clips/out/
+jobs/kokoro/
+node_modules/
 out/
